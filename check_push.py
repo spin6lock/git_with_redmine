@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #encoding:utf8
 """
 This module check your pre-push commit message's issue_no.
 It fail the commit without issue_no
 """
-from __future__ import print_function
+
 import sys
 import re
 import subprocess
@@ -57,8 +57,8 @@ def find_all_my_issues():
     data = find_one_batch_my_issues(offset)
     issues.extend(data["issues"])
     page_count = data["total_count"] // config.search_limit
-    for i in xrange(1, page_count + 1):
-        offset = i * PAGE_SIZE
+    for i in range(1, page_count + 1):
+        offset = i * config.search_limit
         data = find_one_batch_my_issues(offset)
         issues.extend(data["issues"])
     return issues
@@ -79,7 +79,7 @@ def reconstruct_issues(issues):
 
 def find_most_likely_issue(title2issue_no, title):
     result = difflib.get_close_matches(
-        title, [t for t in title2issue_no.iterkeys() if t != title])
+        title, [t for t in title2issue_no.keys() if t != title])
     issue_numbers = [title2issue_no[t] for t in result]
     return issue_numbers
 
@@ -90,8 +90,8 @@ def find_all_same_issue(issue_no, issues, project_name):
     if not title:
         return
     exact_title_issue_no = [
-        i for i, t in issue_no2title.iteritems() if t == title and i != issue_no]
-    match_title_issue_no = find_most_likely_issue(issues.title2issue_no, title)
+        i for i, t in issue_no2title.items() if t == title and i != issue_no]
+    match_title_issue_no = find_most_likely_issue(issues["title2issue_no"], title)
     candidate = itertools.chain(exact_title_issue_no, match_title_issue_no)
     for i in candidate:
         issue_info = issue_no2issue[i]
@@ -127,13 +127,14 @@ def is_correct_issue(curr_branch, issue_no):
     branchs = config.project_name_maps.get(project_name, [])
     branch_names = config.branch_names
     is_match = any(map(curr_branch.startswith, branchs))
-    not_temp_branch = any(map(curr_branch.startswith, branch_names.iterkeys()))
+    not_temp_branch = any(map(curr_branch.startswith, iter(branch_names.keys())))
     wrong_branch = False
     if not is_match and not_temp_branch:
         wrong_branch = True
     if wrong_branch:
         print("wrong branch, the issue you mention:\n", issue_no, issue_info["subject"])
-        branch_name = filter(curr_branch.startswith, branch_names.iterkeys())[0]
+        print("ready to find something similar")
+        branch_name = list(filter(curr_branch.startswith, iter(branch_names.keys())))[0]
         branch_project_name = branch_names[branch_name]
         issues = get_all_issues()
         possible_issue = find_all_same_issue(issue_no, issues, branch_project_name)
@@ -146,16 +147,16 @@ def is_correct_issue(curr_branch, issue_no):
 PATTERN = re.compile(r"#(?P<issue_no>\d+)")
 def main():
     try:
-        upstream = subprocess.check_output(['git', 'rev-parse', '@{u}']).strip() #sha1
+        upstream = subprocess.check_output(["git", "rev-parse", "@{u}"]).strip() #sha1
     except subprocess.CalledProcessError as e:
         print("got:", e.output, "code:", e.returncode)
         return
-    all_commits = subprocess.check_output(["git", "log", upstream+"..HEAD", "--pretty=%h"]).split()
-    curr_branch = subprocess.check_output(["git", "symbolic-ref", "--short", "HEAD"]).strip()
+    all_commits = subprocess.check_output(["git", "log", upstream+b"..HEAD", "--pretty=%h"]).split()
+    curr_branch = subprocess.check_output(["git", "symbolic-ref", "--short", "HEAD"]).strip().decode("utf-8")
     for short_hash in all_commits:
         commit_message = subprocess.check_output(["git", "log", "-1", short_hash,
                                                   "--pretty=%B"])
-        result = PATTERN.findall(commit_message)
+        result = PATTERN.findall(commit_message.decode("utf-8"))
         if result:
             issue_numbers = [int(issue_no) for issue_no in result]
         else:
