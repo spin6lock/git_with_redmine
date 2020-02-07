@@ -38,6 +38,7 @@ def main():
     #remove deleted by us, because no need to edit
     git_st_lines = subprocess.check_output(["git", "status"]).decode("utf-8").splitlines()
     deleted_by_us_files = [x for x in git_st_lines if x.find("deleted by us") > 0]
+    delete_filenames = {}
     if deleted_by_us_files:
         CONST_TIPS = "\tdeleted by us:   "
         delete_filenames = {f.replace(CONST_TIPS,'').encode('utf-8'):True for f in deleted_by_us_files}
@@ -45,9 +46,10 @@ def main():
     conflict_files = [f for f in conflict_files if f not in delete_filenames]
     #call up editor
     EDITOR = os.environ.get("EDITOR", "vim")
+    search_option = '+"/<<<"'
     for filename in conflict_files:
         print("ready to edit:%s" %filename)
-        subprocess.call([EDITOR, filename])
+        subprocess.call([EDITOR, filename, search_option])
         if_miss = check_if_miss(filename)
         while if_miss:
             subprocess.call([EDITOR, filename])
